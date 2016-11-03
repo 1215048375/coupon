@@ -15,8 +15,8 @@ SPIDER_MODULES = ['coupon.spiders']
 NEWSPIDER_MODULE = 'coupon.spiders'
 
 # Logging
-LOG_LEVEL = 'INFO'
-LOG_FILE = '/tmp/seller_spider.20161103.log'
+# LOG_LEVEL = 'INFO'
+# LOG_FILE = '/tmp/seller_spider.20161103.log'
 # LOG_FILE = '/tmp/coupon_spider.20161031.log'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
