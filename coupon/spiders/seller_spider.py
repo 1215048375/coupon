@@ -40,7 +40,7 @@ class SellerSpider(scrapy.Spider):
         'ROBOTSTXT_OBEY': False,
         'DNS_TIMEOUT': 10,
         'DOWNLOAD_TIMEOUT': 60,
-        'DOWNLOAD_DELAY': 0.05,
+        'DOWNLOAD_DELAY': 0.5,
         'CONCURRENT_REQUESTS': 16,
         'COOKIES_ENABLED': False,
         'COOKIES_DEBUG': False,
@@ -104,7 +104,7 @@ class SellerSpider(scrapy.Spider):
         meta.pop('download_slot')
         meta.pop('depth')
         if 'retry_times' in meta:
-            meta.pop()
+            meta.pop('retry_times')
 
         try:
             data = json.loads(response.body)
@@ -128,9 +128,13 @@ class SellerSpider(scrapy.Spider):
                             # 2.1 比率区间不是最小, 构造更小比率区间的请求;
                             # 2.2 比率区间也已经最小, 准备解析
                     if meta['catIds']:
-                        # 1. 价格区间不是最小: 构造更小价格区间的请求
+                        # 获取当前的请求起始/终止价格, 起始/终止比率
                         startPrice = float(meta['startPrice']) if meta['startPrice'] else 0.00
                         endPrice = float(data['data']['pageList'][0]['zkPrice'])
+                        startTkRate = float(meta['startTkRate']) if meta['startTkRate'] else 0.00
+                        endTkRate = float(meta['endTkRate']) if meta['endTkRate'] else 100.0
+
+                        # 1.价格区间不是最小: 构造更小价格区间的请求
                         if round(endPrice-startPrice, 2) > 0.01:
                             middlePrice = round((startPrice+endPrice)/2, 2)
                             prices = [startPrice, middlePrice, endPrice]
@@ -142,10 +146,6 @@ class SellerSpider(scrapy.Spider):
 
                         # 2.价格区间已经最小:
                         if round(endPrice-startPrice, 2) <= 0.01:
-                            # 获取当前的起始/终止比率
-                            startTkRate = float(meta['startTkRate']) if meta['startTkRate'] else 0.00
-                            endTkRate = float(meta['endTkRate']) if meta['endTkRate'] else 100.0
-
                             # 2.1 比率区间不是最小, 构造更小比率区间的请求;
                             if round(endTkRate-startTkRate, 2) > 0.01:
                                 self.logger.info('FUCK YOU: Prices[%s-%s] is minimum, TkRate[%s-%s] is not minimum, %s' %\
@@ -194,4 +194,6 @@ class SellerSpider(scrapy.Spider):
                         url = make_url(**meta)
                         yield scrapy.Request(url=url, meta=meta, callback=self.parse)
         except Exception, e:
-            self.logger.error('parse error(%s) %s' % (e, response.url))
+            url = make_url(**meta)
+            self.logger.error('restricted access(%s), %s, %s' % (e, url, response.url))
+            yield scrapy.Request(url=url, meta=meta, callback=self.parse)

@@ -77,7 +77,7 @@ class CouponSpider(scrapy.Spider):
 
     filter = ScalableBloomFilter(mode=ScalableBloomFilter.LARGE_SET_GROWTH)
     sellers = get_sellers()
-    success_num = 0
+    seller_num = 0
     coupon_num = 0
     session = ''
 
@@ -89,7 +89,7 @@ class CouponSpider(scrapy.Spider):
 
     def spider_closed(self, spider):
         self.logger.info('Spider closed: %s, and crawled %s sellers, success %s sellers, total %s coupons'\
-                         % (spider.name, len(self.sellers), self.success_num, self.coupon_num))
+                         % (spider.name, len(self.sellers), self.seller_num, self.coupon_num))
 
     def start_requests(self):
         """重载父类的start_request方法, 请求的目地是建立会话, 获取cookie"""
@@ -108,12 +108,12 @@ class CouponSpider(scrapy.Spider):
         self.zhushou_headers['Cookie'] = cookie
 
         # 用获取到的cookie获取第一个店铺的广告/优惠券数据
-        index = 0
-        seller = self.sellers[index]
+        serller_index = 0
+        seller = self.sellers[serller_index]
         url = 'http://zhushou3.taokezhushou.com/api/v1/getdata?itemid={0:d}&version=3.5.1'.format(seller['sellerId'])
-        yield scrapy.Request(url=url, meta={'index': index}, headers=self.zhushou_headers, callback=self.parse_ad)
+        yield scrapy.Request(url=url, meta={'serller_index': serller_index}, headers=self.zhushou_headers, callback=self.parse_ad)
         url = 'http://zhushou3.taokezhushou.com/api/v1/coupons_base/{0:d}?item_id={0:d}'.format(seller['sellerId'])
-        yield scrapy.Request(url=url, meta={'index': index}, headers=self.zhushou_headers, callback=self.parse_acIds)
+        yield scrapy.Request(url=url, meta={'serller_index': serller_index}, headers=self.zhushou_headers, callback=self.parse_acIds)
 
     def parse_ad(self, response):
         pass
@@ -123,8 +123,8 @@ class CouponSpider(scrapy.Spider):
         :param response: 优惠券请求的响应
         """
         # 获取response中的数据
-        index = response.meta['index']
-        seller = self.sellers[index]
+        serller_index = response.meta['serller_index']
+        seller = self.sellers[serller_index]
 
         # 解析优惠券活动id
         try:
@@ -139,34 +139,43 @@ class CouponSpider(scrapy.Spider):
                     coupon_item['coupons'] = []
                     meta = {
                         'sellerId': seller['sellerId'],
+                        'serller_index': serller_index,
                         'activity_ids': activity_ids,
                         'coupon_item': coupon_item,
-                        'index': 0,
+                        'activity_index': 0,
                     }
+                    self.seller_num += 1
                     url = 'http://shop.m.taobao.com/shop/coupon.htm?seller_id={0:d}&activity_id={1:s}'.format(seller['sellerId'], activity_ids[0])
                     self.logger.info('sellerId: %s, activities: %s, %s, %s' % (seller['sellerId'], len(data['data']), response.url, data['data']))
-                    yield scrapy.Request(url=url, meta=meta,  headers=self.taobao_headers, callback=self.parse_coupon)
+                    yield scrapy.Request(url=url, meta=meta, headers=self.taobao_headers, callback=self.parse_coupon)
                 else:
-                    self.logger.error('sellerId: %s, activities exist, but return nothing. %s' % (seller['sellerId'], response.url))
+                    self.logger.error('%sth sellerId: %s, activities exist, but return nothing. %s' % (serller_index, seller['sellerId'], response.url))
             else:
-                self.logger.error('sellerId: %s, activities not exist. %s' % (seller['sellerId'], response.url))
+                self.logger.error('%sth sellerId: %s, activities not exist. %s' % (serller_index, seller['sellerId'], response.url))
+
+            # 获取response中的cookie
+            try:
+                xsrf_token = response.headers.getlist('Set-Cookie')[0].split(';')[0]
+                taokezhushu_plugin = response.headers.getlist('Set-Cookie')[1].split(';')[0]
+                cookie = self.session + ';' + xsrf_token + ';' + taokezhushu_plugin
+                self.zhushou_headers['Cookie'] = cookie
+
+                # 用获取到的cookie获取广告/优惠券数据
+                serller_index += 1
+                if serller_index < len(self.sellers):
+                    seller = self.sellers[serller_index]
+                    url = 'http://zhushou3.taokezhushou.com/api/v1/getdata?itemid={0:d}&version=3.5.1'.format(seller['sellerId'])
+                    yield scrapy.Request(url=url, meta={'serller_index': serller_index}, headers=self.zhushou_headers, callback=self.parse_ad)
+                    url = 'http://zhushou3.taokezhushou.com/api/v1/coupons_base/{0:d}?item_id={0:d}'.format(seller['sellerId'])
+                    yield scrapy.Request(url=url, meta={'serller_index': serller_index}, headers=self.zhushou_headers, callback=self.parse_acIds)
+            except Exception, e:
+                self.logger.error('cookies error(%s), %s' % (e, response.headers))
         except Exception, e:
-            self.logger.error('parse activities from taokezhushou json data error(%s), %s' % (e, response.body))
-
-        # 获取response中的cookie
-        xsrf_token = response.headers.getlist('Set-Cookie')[0].split(';')[0]
-        taokezhushu_plugin = response.headers.getlist('Set-Cookie')[1].split(';')[0]
-        cookie = self.session + ';' + xsrf_token + ';' + taokezhushu_plugin
-        self.zhushou_headers['Cookie'] = cookie
-
-        # 用获取到的cookie获取广告/优惠券数据
-        index += 1
-        if index < len(self.sellers):
-            seller = self.sellers[index]
+            self.logger.error('restricted access(%s). %sth sellerId: %s, %s' % (e, serller_index, seller['sellerId'], response.url))
             url = 'http://zhushou3.taokezhushou.com/api/v1/getdata?itemid={0:d}&version=3.5.1'.format(seller['sellerId'])
-            yield scrapy.Request(url=url, meta={'index': index}, headers=self.zhushou_headers, callback=self.parse_ad)
+            yield scrapy.Request(url=url, meta={'serller_index': serller_index}, headers=self.zhushou_headers, callback=self.parse_ad)
             url = 'http://zhushou3.taokezhushou.com/api/v1/coupons_base/{0:d}?item_id={0:d}'.format(seller['sellerId'])
-            yield scrapy.Request(url=url, meta={'index': index}, headers=self.zhushou_headers, callback=self.parse_acIds)
+            yield scrapy.Request(url=url, meta={'serller_index': serller_index}, headers=self.zhushou_headers, callback=self.parse_acIds)
 
     def parse_coupon(self, response):
         """ 解析领券页面,获取优惠券的详细信息
@@ -174,8 +183,9 @@ class CouponSpider(scrapy.Spider):
         """
         # 获取response中的数据
         sellerId = response.meta['sellerId']
+        serller_index = response.meta['serller_index']
         activity_ids = response.meta['activity_ids']
-        index = response.meta['index']
+        activity_index = response.meta['activity_index']
         coupon_item = response.meta['coupon_item']
 
         # 从页面中解析优惠券信息
@@ -184,12 +194,12 @@ class CouponSpider(scrapy.Spider):
             price = response.xpath('//*[@class="coupon-info"]/dl/dt/text()').extract()[0].split(u'元')[0]
             condition = response.xpath('//*[@class="coupon-info"]/dl/dd[2]/text()').extract()[0]
             period_of_validity = response.xpath('//*[@class="coupon-info"]/dl/dd[3]/text()').extract()[0]
-            start = period_of_validity.split(':')[1].split(u'至')[0]
-            end = period_of_validity.split(':')[1].split(u'至')[1]
+            start = period_of_validity.split(':')[1].split(u'至')[0].replace('-', '.')
+            end = period_of_validity.split(':')[1].split(u'至')[1].replace('-', '.')
 
             # 将优惠券信息加入coupon_item
             coupon = {
-                'acId': activity_ids[index],
+                'acId': activity_ids[activity_index],
                 'condition': condition,
                 'type': 0,
                 'price': int(price)*100,
@@ -197,23 +207,25 @@ class CouponSpider(scrapy.Spider):
                 'end': end,
             }
             coupon_item['coupons'].append(coupon)
-            self.logger.info("sellerId: %s, %sth coupon success, %s" % (sellerId, index+1, response.url))
+            self.logger.info("sellerId: %s, %sth coupon success, %s" % (sellerId, activity_index + 1, response.url))
         except Exception, e:
-            self.logger.error("sellerId: %s, %sth coupon error(%s), %s" % (sellerId, index+1, e, response.url))
+            self.logger.error("sellerId: %s, %sth coupon error(%s), %s" % (sellerId, activity_index + 1, e, response.url))
             pass
 
         # 获取该店铺中的下一个优惠券
-        index += 1
-        if index < len(activity_ids):
+        activity_index += 1
+        if activity_index < len(activity_ids):
             meta = {
                 'sellerId': sellerId,
+                'serller_index': serller_index,
                 'activity_ids': activity_ids,
                 'coupon_item': coupon_item,
-                'index': index,
+                'activity_index': activity_index,
             }
-            url = 'http://shop.m.taobao.com/shop/coupon.htm?seller_id={0:d}&activity_id={1:s}'.format(sellerId, activity_ids[index])
+            url = 'http://shop.m.taobao.com/shop/coupon.htm?seller_id={0:d}&activity_id={1:s}'.format(sellerId, activity_ids[activity_index])
             yield scrapy.Request(url=url, meta=meta, headers=self.taobao_headers, callback=self.parse_coupon)
         else:
+            self.coupon_num += len(coupon_item['coupons'])
             self.logger.info("sellerId: %s, activities: %s, coupons: %s" % (sellerId, len(activity_ids), len(coupon_item['coupons'])))
             yield coupon_item
 

@@ -16,8 +16,8 @@ NEWSPIDER_MODULE = 'coupon.spiders'
 
 # Logging
 # LOG_LEVEL = 'INFO'
-# LOG_FILE = '/tmp/seller_spider.20161103.log'
-# LOG_FILE = '/tmp/coupon_spider.20161031.log'
+# LOG_FILE = '/tmp/seller_spider..log'
+# LOG_FILE = '/tmp/coupon_spider..log'
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'coupon (+http://www.yourdomain.com)'
