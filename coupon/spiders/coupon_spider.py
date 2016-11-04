@@ -49,11 +49,6 @@ class CouponSpider(scrapy.Spider):
         # 'MONGO_URI': '199.155.122.32:27018',
         # 'MONGO_DATABASE': 'coupons',
         # 'MONGO_COLLECTION': 'coupons_20161104'
-
-        # 线上
-        'MONGO_URI': 'mongodb://spider:spiderpasw@10.0.0.93:27017/tts_spider_deploy?authMechanism=SCRAM-SHA-1',
-        'MONGO_DATABASE': 'tts_spider_deploy',
-        'MONGO_COLLECTION': 't_spider_product_coupon'
     }
 
     zhushou_headers = {
