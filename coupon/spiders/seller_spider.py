@@ -40,7 +40,7 @@ class SellerSpider(scrapy.Spider):
         'ROBOTSTXT_OBEY': False,
         'DNS_TIMEOUT': 10,
         'DOWNLOAD_TIMEOUT': 60,
-        'DOWNLOAD_DELAY': 0.5,
+        'DOWNLOAD_DELAY': 0.1,
         'CONCURRENT_REQUESTS': 16,
         'COOKIES_ENABLED': False,
         'COOKIES_DEBUG': False,
