@@ -14,7 +14,7 @@ BOT_NAME = 'coupon'
 SPIDER_MODULES = ['coupon.spiders']
 NEWSPIDER_MODULE = 'coupon.spiders'
 
-# Logging
+# Logging Format
 # LOG_LEVEL = 'INFO'
 # LOG_FILE = '/tmp/seller_spider..log'
 # LOG_FILE = '/tmp/coupon_spider..log'

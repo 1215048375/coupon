@@ -56,7 +56,7 @@ class SellerSpider(scrapy.Spider):
         'ITEM_PIPELINES': {
             'coupon.pipelines.SellerPipeline': 300,
         },
-        'SELLERS_FILE': './sellers.{0:s}.json'.format(datetime.datetime.now().strftime("%Y%m%d"))
+        'SELLERS_FILE': './data/sellers.{0:s}.json'.format(datetime.datetime.now().strftime("%Y%m%d"))
     }
 
     filter = ScalableBloomFilter(mode=ScalableBloomFilter.LARGE_SET_GROWTH)
@@ -196,4 +196,4 @@ class SellerSpider(scrapy.Spider):
         except Exception, e:
             url = make_url(**meta)
             self.logger.error('restricted access(%s), %s, %s' % (e, url, response.url))
-            yield scrapy.Request(url=url, meta=meta, callback=self.parse)
+            yield scrapy.Request(url=url, meta=meta, callback=self.parse, dont_filter=True)
