@@ -65,13 +65,13 @@ class CouponSpider(scrapy.Spider):
             'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
         },
         'ITEM_PIPELINES': {
-        #    'coupon.pipelines.CouponPipeline': 300,
+           'coupon.pipelines.CouponPipeline': 300,
         },
 
         # 线下
-        # 'MONGO_URI': '199.155.122.32:27018',
-        # 'MONGO_DATABASE': 'coupons',
-        # 'MONGO_COLLECTION': 'coupons_20161104'
+        'MONGO_URI': '199.155.122.32:27018',
+        'MONGO_DATABASE': 'coupons',
+        'MONGO_COLLECTION': 'coupons_20161104'
     }
 
     sellers = get_sellers()[:1000]  # 从文件中载入所有seller信息
