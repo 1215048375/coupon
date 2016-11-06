@@ -53,7 +53,7 @@ class CouponSpider(scrapy.Spider):
         'ROBOTSTXT_OBEY': False,
         'DNS_TIMEOUT': 10,
         'DOWNLOAD_TIMEOUT': 60,
-        'DOWNLOAD_DELAY': 0.1,
+        'DOWNLOAD_DELAY': 0.15,
         'CONCURRENT_REQUESTS': 16,
         'COOKIES_ENABLED': True,
         'COOKIES_DEBUG': True,
@@ -74,7 +74,7 @@ class CouponSpider(scrapy.Spider):
         'MONGO_COLLECTION': 'coupons_20161104'
     }
 
-    sellers = get_sellers()[:1000]  # 从文件中载入所有seller信息
+    sellers = get_sellers()[:500]  # 从文件中载入所有seller信息
     seller_num = 0                  # 已抓取过的seller数量
     coupon_num = 0                  # 已抓取到的优惠券数量
     session = ''

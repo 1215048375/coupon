@@ -48,12 +48,12 @@ class CouponPipeline(object):
             self.total_items += len(self.coupon_items)
             self.collection.insert_many(self.coupon_items)
             self.coupon_items = []
-            self.logger.info("Eventually put %d products into mongodb " % self.total_items)
+            self.logger.info("Eventually put %d coupons into mongodb " % self.total_items)
         self.client.close()
 
     def process_item(self, item, spider):
         # 收集到1000个item, 批量插入
-        if len(self.coupon_items) >= 20:
+        if len(self.coupon_items) >= 100:
             self.total_items += len(self.coupon_items)
             self.collection.insert_many(self.coupon_items)
             self.coupon_items = []

@@ -15,7 +15,7 @@ SPIDER_MODULES = ['coupon.spiders']
 NEWSPIDER_MODULE = 'coupon.spiders'
 
 # Logging Format
-# LOG_LEVEL = 'INFO'
+LOG_LEVEL = 'INFO'
 # LOG_FILE = '/tmp/seller_spider..log'
 # LOG_FILE = '/tmp/coupon_spider..log'
 
