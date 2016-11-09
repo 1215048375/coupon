@@ -9,7 +9,7 @@ import time
 from coupon.items import CouponItem
 
 # 卖家信息文件
-SELLERS_FILE = './data/sellers.20161104.json'
+SELLERS_FILE = './data/sellers.json'
 
 
 # 从文件中读取卖家信息
@@ -70,14 +70,15 @@ class CouponSpider(scrapy.Spider):
 
         # 线下
         'MONGO_URI': '199.155.122.32:27018',
-        'MONGO_DATABASE': 'coupons',
-        'MONGO_COLLECTION': 'coupons_20161104'
+        'MONGO_DATABASE': 'tts_spider_deploy',
+        'MONGO_COUPON_COLLECTION': 't_spider_product_coupon',
+        'MONGO_SEQ_COLLECTION': 't_spider_product_seq'
     }
 
-    sellers = get_sellers()[:500]  # 从文件中载入所有seller信息
-    seller_num = 0                  # 已抓取过的seller数量
-    coupon_num = 0                  # 已抓取到的优惠券数量
-    session = ''
+    sellers = get_sellers() # 从文件中载入所有seller信息
+    seller_num = 0          # 已抓取过的seller数量
+    coupon_num = 0          # 已抓取到的优惠券数量
+    session = ''            # 爬虫链接的会话
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
@@ -143,6 +144,7 @@ class CouponSpider(scrapy.Spider):
                     # 获取一个店铺中的所有优惠券页面, 解析优惠券信息
                     activity_ids = [item['activity_id'] for item in data['data']]
                     coupon_item = CouponItem()
+                    coupon_item['nick'] = seller['nick']
                     coupon_item['selid'] = str(seller['sellerId'])
                     coupon_item['wsite'] = 'taobao'
                     coupon_item['coupons'] = []
@@ -172,9 +174,9 @@ class CouponSpider(scrapy.Spider):
             seller_index += 1
             seller = self.sellers[seller_index]
             url = 'http://zhushou3.taokezhushou.com/api/v1/getdata?itemid={0:d}&version=3.5.1'.format(random.randint(1000000, 99999999))
-            yield scrapy.Request(url=url, meta={'seller_index': seller_index}, headers=zhushou_headers, callback=self.parse_ad)
+            yield scrapy.Request(url=url, meta={'seller_index': seller_index}, headers=zhushou_headers, callback=self.parse_ad, dont_filter=True)
             url = 'http://zhushou3.taokezhushou.com/api/v1/coupons_base/{0:d}?item_id={1:d}'.format(seller['sellerId'], random.randint(1000000, 99999999))
-            yield scrapy.Request(url=url, meta={'seller_index': seller_index}, headers=zhushou_headers, callback=self.parse_acIds)
+            yield scrapy.Request(url=url, meta={'seller_index': seller_index}, headers=zhushou_headers, callback=self.parse_acIds, dont_filter=True)
 
     def parse_coupon(self, response):
         """ 解析领券页面,获取优惠券的详细信息

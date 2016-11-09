@@ -5,6 +5,8 @@
 # Don't forget to add your pipeline to the ITEM_PIPELINES setting
 # See: http://doc.scrapy.org/en/latest/topics/item-pipeline.html
 import json
+
+import datetime
 import pymongo
 import logging
 
@@ -27,39 +29,38 @@ class SellerPipeline(object):
 
 
 class CouponPipeline(object):
-    def __init__(self, mongo_uri, mongo_db, mongo_collection):
-        self.client = pymongo.MongoClient(mongo_uri)
-        self.collection = self.client[mongo_db][mongo_collection]
-        self.coupon_items = []
-        self.total_items = 0
+    def __init__(self, mongo_uri, mongo_db, mongo_coupon_collection, mongo_seq_collection):
         self.logger = logging.getLogger(__name__)
-        self.collection.create_index([("selid", pymongo.ASCENDING)], unique=True, background=True)
+
+        self.client = pymongo.MongoClient(mongo_uri)
+        self.coupon_collection = self.client[mongo_db][mongo_coupon_collection]
+        self.seq_collection = self.client[mongo_db][mongo_seq_collection]
+        self.coupon_collection.create_index([("selid", pymongo.ASCENDING), ("nick", pymongo.ASCENDING)], unique=True, background=True)
 
     @classmethod
     def from_crawler(cls, crawler):
         return cls(
             mongo_uri=crawler.settings.get('MONGO_URI'),
             mongo_db=crawler.settings.get('MONGO_DATABASE'),
-            mongo_collection=crawler.settings.get('MONGO_COLLECTION'),
+            mongo_coupon_collection=crawler.settings.get('MONGO_COUPON_COLLECTION'),
+            mongo_seq_collection=crawler.settings.get('MONGO_SEQ_COLLECTION')
         )
 
     def close_spider(self, spider):
-        if self.coupon_items:
-            self.total_items += len(self.coupon_items)
-            self.collection.insert_many(self.coupon_items)
-            self.coupon_items = []
-            self.logger.info("Eventually put %d coupons into mongodb " % self.total_items)
         self.client.close()
 
-    def process_item(self, item, spider):
-        # 收集到1000个item, 批量插入
-        if len(self.coupon_items) >= 100:
-            self.total_items += len(self.coupon_items)
-            self.collection.insert_many(self.coupon_items)
-            self.coupon_items = []
-            self.logger.info("Put %d products into mongodb" % self.total_items)
-        # 收集item
-        else:
-            self.coupon_items.append(dict(item))
+    def process_item(self, coupon_item, spider):
+        objs = list(self.coupon_collection.find({'selid': coupon_item['selid']}))
 
-        return item
+        # 店铺的优惠券已经存在, 则立即update优惠券
+        if objs:
+            coupons = list(set(coupon_item['coupons']).union(set(objs[0]['coupons'])))
+            self.coupon_collection.update({'selid': coupon_item['selid']}, {'$set': {'coupons': coupons, 'mtime': datetime.datetime.now()}})
+
+        # 店铺的优惠券不存在, 则先获取_id, 然后插入该店铺的优惠券
+        else:
+            coupon_item['_id'] = self.seq_collection.find_and_modify({'type': 'coupon'}, {'$inc': {'seq': 1}})['seq']
+            coupon_item['ctime'] = coupon_item['mtime'] = datetime.datetime.now()
+            self.coupon_collection.insert_one(dict(coupon_item))
+
+        return coupon_item

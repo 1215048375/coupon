@@ -18,6 +18,10 @@ class SellerItem(scrapy.Item):
 class CouponItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
+    _id = scrapy.Field()
     selid = scrapy.Field()
-    wsite = scrapy.Field()
+    nick = scrapy.Field()
     coupons = scrapy.Field()
+    wsite = scrapy.Field()
+    ctime = scrapy.Field()
+    mtime = scrapy.Field()
