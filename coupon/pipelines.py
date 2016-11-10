@@ -50,12 +50,17 @@ class CouponPipeline(object):
         self.client.close()
 
     def process_item(self, coupon_item, spider):
-        objs = list(self.coupon_collection.find({'selid': coupon_item['selid']}))
+        selid = coupon_item['selid']
+        objs = list(self.coupon_collection.find({'selid': selid}))
 
         # 店铺的优惠券已经存在, 则立即update优惠券
         if objs:
-            coupons = list(set(coupon_item['coupons']).union(set(objs[0]['coupons'])))
-            self.coupon_collection.update({'selid': coupon_item['selid']}, {'$set': {'coupons': coupons, 'mtime': datetime.datetime.now()}})
+            coupons_map = dict()
+            coupons = objs[0]['coupons'] + coupon_item['coupons']
+            for coupon in coupons:
+                acId = coupon['acId']
+                coupons_map[acId] = coupon
+            self.coupon_collection.update({'selid': selid}, {'$set': {'coupons': coupons_map.values(), 'mtime': datetime.datetime.now()}})
 
         # 店铺的优惠券不存在, 则先获取_id, 然后插入该店铺的优惠券
         else:

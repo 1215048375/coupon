@@ -87,7 +87,7 @@ class CouponSpider(scrapy.Spider):
         return spider
 
     def spider_closed(self, spider):
-        self.logger.info('Spider closed: %s, and crawled %s self.sellers, success %s self.sellers, total %s coupons'\
+        self.logger.info('Spider closed: %s, and crawled %s sellers, success %s sellers, total %s coupons'\
                          % (spider.name, len(self.sellers), self.seller_num, self.coupon_num))
 
     def start_requests(self):
