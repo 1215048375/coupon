@@ -8,6 +8,7 @@
 #     http://doc.scrapy.org/en/latest/topics/settings.html
 #     http://scrapy.readthedocs.org/en/latest/topics/downloader-middleware.html
 #     http://scrapy.readthedocs.org/en/latest/topics/spider-middleware.html
+import datetime
 
 BOT_NAME = 'coupon'
 
@@ -16,8 +17,7 @@ NEWSPIDER_MODULE = 'coupon.spiders'
 
 # Logging Format
 LOG_LEVEL = 'INFO'
-# LOG_FILE = '/tmp/seller_spider..log'
-# LOG_FILE = '/tmp/coupon_spider..log'
+LOG_FILE = './log/coupon_spider.{0:s}.log'.format(datetime.datetime.now().strftime('%Y%m%d'))
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent
 #USER_AGENT = 'coupon (+http://www.yourdomain.com)'

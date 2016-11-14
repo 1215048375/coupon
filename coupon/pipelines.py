@@ -35,7 +35,7 @@ class CouponPipeline(object):
         self.client = pymongo.MongoClient(mongo_uri)
         self.coupon_collection = self.client[mongo_db][mongo_coupon_collection]
         self.seq_collection = self.client[mongo_db][mongo_seq_collection]
-        self.coupon_collection.create_index([("selid", pymongo.ASCENDING), ("nick", pymongo.ASCENDING)], unique=True, background=True)
+        # self.coupon_collection.create_index([("selid", pymongo.ASCENDING), ("nick", pymongo.ASCENDING)], unique=True, background=True)
 
     @classmethod
     def from_crawler(cls, crawler):
@@ -51,12 +51,12 @@ class CouponPipeline(object):
 
     def process_item(self, coupon_item, spider):
         selid = coupon_item['selid']
-        objs = list(self.coupon_collection.find({'selid': selid}))
+        seller = self.coupon_collection.find_one(filter={'selid': selid}, max_time_ms=100)
 
         # 店铺的优惠券已经存在, 则立即update优惠券
-        if objs:
+        if seller:
+            coupons = seller['coupons'] + coupon_item['coupons']
             coupons_map = dict()
-            coupons = objs[0]['coupons'] + coupon_item['coupons']
             for coupon in coupons:
                 acId = coupon['acId']
                 coupons_map[acId] = coupon

@@ -228,4 +228,5 @@ class CouponSpider(scrapy.Spider):
         else:
             self.coupon_num += len(coupon_item['coupons'])
             self.logger.info("%sth sellerId: %s, activities: %s, coupons: %s" % (seller_index + 1, sellerId, len(activity_ids), len(coupon_item['coupons'])))
-            yield coupon_item
+            if len(coupon_item['coupons']):
+                yield coupon_item
