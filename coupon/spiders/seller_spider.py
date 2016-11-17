@@ -9,26 +9,23 @@ from pybloom import ScalableBloomFilter
 from coupon.items import SellerItem
 
 
-def make_url(channel='', toPage=1, perPageSize=100, sortType=3, dpyhq=1, shopTag='dpyhq', catIds='',
-             startTkRate='', endTkRate='', userType='', startPrice='', endPrice='', is_proxy=True):
+def make_url(channel='', toPage=1, perPageSize=100, sortType=3, catIds='',startTkRate='', endTkRate='', userType='',
+             startPrice='', endPrice='', is_proxy=True):
     """构造url
     :param channel: 频道，默认为nzjh(女装尖货)
     :param toPage: 页索引. 默认为第1页
     :param perPageSize: 每页商品数，默认为最大值100
     :param sortType: 排序方式. 默认为3(价格从高到低排序)
-    :param dpyhq: 店铺优惠券. 默认为1(即有优惠券的店铺)
     :param catIds: 类目号.
     :param startTkRate: 起始比率.
     :param endTkRate: 终止比率.
-    :param shopTag: 店铺标签. 默认为dpyhq(有优惠券的店铺)
-    :param userType: 店铺类型.
+    :param userType: 店铺类型.（天猫/淘宝）
     :param startPrice: 起始价格
     :param endPrice: 终止价格
     :param is_proxy: 构造url时不使用该参数, 仅为了兼容response的meta
     """
-    url = 'http://pub.alimama.com/items/channel/{0:s}.json?channel={0:s}&toPage={1:d}&perPageSize={2:d}&sortType={3:d}&dpyhq={4:d}&shopTag={5:s}&catIds={6:s}&level=1&startPrice={7:s}&endPrice={8:s}&userType={9:s}&startTkRate={10:s}&endTkRate={11:s}'.format(
-        channel, toPage, perPageSize, sortType, dpyhq, shopTag, catIds, startPrice, endPrice, userType, startTkRate,
-        endTkRate)
+    url = 'http://pub.alimama.com/items/channel/{0:s}.json?channel={0:s}&toPage={1:d}&perPageSize={2:d}&sortType={3:d}&catIds={4:s}&level=1&startPrice={5:s}&endPrice={6:s}&userType={7:s}&startTkRate={8:s}&endTkRate={9:s}'.format(
+        channel, toPage, perPageSize, sortType, catIds, startPrice, endPrice, userType, startTkRate, endTkRate)
     return url
 
 
@@ -59,9 +56,9 @@ class SellerSpider(scrapy.Spider):
         'SELLERS_FILE': './data/sellers.{0:s}.json'.format(datetime.datetime.now().strftime("%Y%m%d"))
     }
 
-    filter = ScalableBloomFilter(mode=ScalableBloomFilter.LARGE_SET_GROWTH)
-    product_nums = dict()
-    seller_num = 0
+    filter = ScalableBloomFilter(mode=ScalableBloomFilter.LARGE_SET_GROWTH)   # 布隆过滤器, 用于过滤掉重复的卖家
+    product_nums = dict()   # 每个channel的商品总数. key为channel名, value为该channel的商品总数
+    seller_num = 0          # 获取到的去重后的卖家总数
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
@@ -83,8 +80,6 @@ class SellerSpider(scrapy.Spider):
                 'toPage': 1,
                 'perPageSize': 100,
                 'sortType': 3,
-                'dpyhq': 1,
-                'shopTag': 'dpyhq',
                 'catIds': '',
                 'startPrice': '',
                 'endPrice': '',
@@ -115,19 +110,19 @@ class SellerSpider(scrapy.Spider):
                 # pages>100的情况：
                 if pages > 100:
                     # 未设置catIds的情况： 构造设置了catIds的请求
-                    if not meta['catIds']:
-                        navigators = data['data']['navigator']
-                        for navigator in navigators:
-                            meta['catIds'] = str(navigator['id'])
-                            url = make_url(**meta)
-                            yield scrapy.Request(url=url, meta=meta, callback=self.parse)
+                    # if not meta['catIds']:
+                    #     navigators = data['data']['navigator']
+                    #     for navigator in navigators:
+                    #         meta['catIds'] = str(navigator['id'])
+                    #         url = make_url(**meta)
+                    #         yield scrapy.Request(url=url, meta=meta, callback=self.parse)
 
                     # 已设置catIds的情况：
                         # 1.价格区间不是最小: 构造更小价格区间的请求;
                         # 2.价格区间已经最小:
                             # 2.1 比率区间不是最小, 构造更小比率区间的请求;
                             # 2.2 比率区间也已经最小, 准备解析
-                    if meta['catIds']:
+                    if not meta['catIds']:
                         # 获取当前的请求起始/终止价格, 起始/终止比率
                         startPrice = float(meta['startPrice']) if meta['startPrice'] else 0.00
                         endPrice = float(data['data']['pageList'][0]['zkPrice'])
@@ -148,7 +143,7 @@ class SellerSpider(scrapy.Spider):
                         if round(endPrice-startPrice, 2) <= 0.01:
                             # 2.1 比率区间不是最小, 构造更小比率区间的请求;
                             if round(endTkRate-startTkRate, 2) > 0.01:
-                                self.logger.info('FUCK YOU: Prices[%s-%s] is minimum, TkRate[%s-%s] is not minimum, %s' %\
+                                self.logger.error('Prices[%s-%s] is minimum, but TkRate[%s-%s] is not minimum, %s' %\
                                                  (startPrice, endPrice, startTkRate, endTkRate, response.url))
                                 middleTkRate = round((startTkRate+endTkRate)/2, 2)
                                 TkRates = [startTkRate, middleTkRate, endTkRate]
@@ -159,8 +154,8 @@ class SellerSpider(scrapy.Spider):
                                     yield scrapy.Request(url=url, meta=meta, callback=self.parse)
 
                             # 2.2 比率区间已经最小, 准备解析
-                            if round(endTkRate-startTkRate, 2) <= 0.01:
-                                self.logger.info("FUCK YOU: Prices[%s-%s] is minimum, TkRate[%s-%s] is minimum. %s" % \
+                            if (round(endTkRate-startTkRate, 2) <= 0.01) and (meta['toPage'] == 1):
+                                self.logger.error("FUCK YOU. Prices[%s-%s] is minimum, and TkRate[%s-%s] is minimum. %s" % \
                                                   (startPrice, endPrice, startTkRate, endTkRate, response.url))
                                 pages = 100
 
@@ -168,7 +163,7 @@ class SellerSpider(scrapy.Spider):
                 if pages <= 100:
                     # 解析出店铺信息
                     sellerIds = [info['sellerId'] for info in data['data']['pageList']]
-                    shopTitles = [info['shopTitle'] for info in data['data']['pageList']]
+                    nicks = [info['nick'] for info in data['data']['pageList']]
                     for i in range(len(sellerIds)):
                         if self.filter.add(sellerIds[i]):
                             pass
@@ -176,7 +171,7 @@ class SellerSpider(scrapy.Spider):
                             self.seller_num += 1
                             seller_item = SellerItem()
                             seller_item['sellerId'] = sellerIds[i]
-                            seller_item['shopTitle'] = shopTitles[i]
+                            seller_item['nick'] = nicks[i]
                             yield seller_item
                     if meta['channel'] not in self.product_nums.keys():
                         self.product_nums[meta['channel']] = 0

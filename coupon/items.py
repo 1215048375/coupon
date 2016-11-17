@@ -12,7 +12,7 @@ class SellerItem(scrapy.Item):
     # define the fields for your item here like:
     # name = scrapy.Field()
     sellerId = scrapy.Field()
-    shopTitle = scrapy.Field()
+    nick = scrapy.Field()
 
 
 class CouponItem(scrapy.Item):
