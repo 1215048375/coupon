@@ -74,7 +74,6 @@ class SellerSpider(scrapy.Spider):
         """重载父类的start_request方法"""
         channels = ['nzjh', 'muying', 'qqhd', 'ifs', 'qbb', 'hch', 'cdj', 'jyj', 'kdc', 'diy', '9k9', '20k', 'tehui']
         for channel in channels:
-            url = 'http://pub.alimama.com/items/channel/{0:s}.json?channel={0:s}'.format(channel)
             meta = {
                 'channel': channel,
                 'toPage': 1,
@@ -87,6 +86,7 @@ class SellerSpider(scrapy.Spider):
                 'startTkRate': '',
                 'endTkRate': ''
             }
+            url = 'http://pub.alimama.com/items/channel/{0:s}.json?channel={0:s}&sortType={1:d}'.format(channel, meta['sortType'])
             yield scrapy.Request(url=url, meta=meta, callback=self.parse)
 
     def parse(self, response):
@@ -104,25 +104,45 @@ class SellerSpider(scrapy.Spider):
         try:
             data = json.loads(response.body)
             if not data['data']['head']['docsfound']:
-                self.logger.info('no docs found in channel: %s, %s' % (meta['channel'], response.url))
+                errmsg = data['data']['head']['errmsg']
+                # 确实没有满足条件的doc返回
+                if "no keyword search failed" in errmsg:
+                    self.logger.error('docs not exist, and no docs found in channel: %s, %s' % (meta['channel'], response.url))
+                    pass
+                # 有满足条件的doc返回, 但由于超时等原因导致无返回结果
+                else:
+                    self.logger.error('docs exist, but no docs found in channel: %s, %s' % (meta['channel'], response.url))
+                    yield scrapy.Request(url=response.url, meta=meta, callback=self.parse, dont_filter=True)
             else:
                 pages = data['data']['paginator']['pages']
                 # pages>100的情况：
                 if pages > 100:
                     # 未设置catIds的情况： 构造设置了catIds的请求
-                    # if not meta['catIds']:
-                    #     navigators = data['data']['navigator']
-                    #     for navigator in navigators:
-                    #         meta['catIds'] = str(navigator['id'])
-                    #         url = make_url(**meta)
-                    #         yield scrapy.Request(url=url, meta=meta, callback=self.parse)
+                    if not meta['catIds']:
+                        catIds = dict()
+                        navigators = data['data']['navigator']
+                        for navigator in navigators:
+                            if navigator['subIds']:
+                                for subId in navigator['subIds']:
+                                    catId = str(subId['id'])
+                                    name = subId['name']
+                                    catIds[catId] = name
+                            else:
+                                catId = str(navigator['id'])
+                                name = navigator['name']
+                                catIds[catId] = name
+
+                        for catId in catIds.keys():
+                            meta['catIds'] = catId
+                            url = make_url(**meta)
+                            yield scrapy.Request(url=url, meta=meta, callback=self.parse)
 
                     # 已设置catIds的情况：
                         # 1.价格区间不是最小: 构造更小价格区间的请求;
                         # 2.价格区间已经最小:
                             # 2.1 比率区间不是最小, 构造更小比率区间的请求;
                             # 2.2 比率区间也已经最小, 准备解析
-                    if not meta['catIds']:
+                    if meta['catIds']:
                         # 获取当前的请求起始/终止价格, 起始/终止比率
                         startPrice = float(meta['startPrice']) if meta['startPrice'] else 0.00
                         endPrice = float(data['data']['pageList'][0]['zkPrice'])
@@ -143,7 +163,7 @@ class SellerSpider(scrapy.Spider):
                         if round(endPrice-startPrice, 2) <= 0.01:
                             # 2.1 比率区间不是最小, 构造更小比率区间的请求;
                             if round(endTkRate-startTkRate, 2) > 0.01:
-                                self.logger.error('Prices[%s-%s] is minimum, but TkRate[%s-%s] is not minimum, %s' %\
+                                self.logger.info('Prices[%s-%s] is minimum, but TkRate[%s-%s] is not minimum, %s' %\
                                                  (startPrice, endPrice, startTkRate, endTkRate, response.url))
                                 middleTkRate = round((startTkRate+endTkRate)/2, 2)
                                 TkRates = [startTkRate, middleTkRate, endTkRate]
@@ -155,8 +175,8 @@ class SellerSpider(scrapy.Spider):
 
                             # 2.2 比率区间已经最小, 准备解析
                             if (round(endTkRate-startTkRate, 2) <= 0.01) and (meta['toPage'] == 1):
-                                self.logger.error("FUCK YOU. Prices[%s-%s] is minimum, and TkRate[%s-%s] is minimum. %s" % \
-                                                  (startPrice, endPrice, startTkRate, endTkRate, response.url))
+                                self.logger.error("FUCK YOU. Pages[%s], Prices[%s-%s] is minimum, and TkRate[%s-%s] is minimum. %s" % \
+                                                  (pages, startPrice, endPrice, startTkRate, endTkRate, response.url))
                                 pages = 100
 
                 # pages<=100的情况：
