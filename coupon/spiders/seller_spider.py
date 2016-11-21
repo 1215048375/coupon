@@ -103,16 +103,18 @@ class SellerSpider(scrapy.Spider):
 
         try:
             data = json.loads(response.body)
+            # 返回结果中没有商品信息
             if not data['data']['head']['docsfound']:
                 errmsg = data['data']['head']['errmsg']
                 # 确实没有满足条件的doc返回
                 if "no keyword search failed" in errmsg:
-                    self.logger.error('docs not exist, and no docs found in channel: %s, %s' % (meta['channel'], response.url))
+                    self.logger.error('no docs found (%s) in channel: %s, %s' % (errmsg, meta['channel'], response.url))
                     pass
                 # 有满足条件的doc返回, 但由于超时等原因导致无返回结果
                 else:
-                    self.logger.error('docs exist, but no docs found in channel: %s, %s' % (meta['channel'], response.url))
+                    self.logger.error('no docs found (%s) in channel: %s, %s' % (errmsg, meta['channel'], response.url))
                     yield scrapy.Request(url=response.url, meta=meta, callback=self.parse, dont_filter=True)
+            # 返回结果中有商品信息
             else:
                 pages = data['data']['paginator']['pages']
                 # pages>100的情况：
@@ -122,16 +124,19 @@ class SellerSpider(scrapy.Spider):
                         catIds = dict()
                         navigators = data['data']['navigator']
                         for navigator in navigators:
-                            if navigator['subIds']:
-                                for subId in navigator['subIds']:
-                                    catId = str(subId['id'])
-                                    name = subId['name']
+                            if navigator['type'] == "category":
+                                if navigator['subIds']:
+                                    for subId in navigator['subIds']:
+                                        catId = str(subId['id'])
+                                        name = subId['name']
+                                        catIds[catId] = name
+                                else:
+                                    catId = str(navigator['id'])
+                                    name = navigator['name']
                                     catIds[catId] = name
                             else:
-                                catId = str(navigator['id'])
-                                name = navigator['name']
-                                catIds[catId] = name
-
+                                pass
+                        self.logger.info('%s catIds in channel: %s, %s' % (len(catIds), meta['channel'], response.url))
                         for catId in catIds.keys():
                             meta['catIds'] = catId
                             url = make_url(**meta)
