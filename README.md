@@ -19,7 +19,8 @@
     2. 确认coupon_spider.py中SELLERS_FILE变量的值是否配置正确
     3. 确认run.py/run.sh中配置的是coupon_spider
     4. 确认setting.py中日志文件配置为coupon_spider
-    5. coupon_spider只调用了接口采集数据, 故爬取速度非常快：
+    5. 确保coupon_spider.py中配置的是线上数据库地址
+    6. coupon_spider只调用了接口采集数据, 故爬取速度非常快：
         1. ADSL切换时间3s, 设置下载延时0.1s(实践证明不可行)
         2. ADSL切换时间3s, 设置下载延时0.15s(实践证明可行)
         3. ADSL切换时间3s, 设置下载延时0.2s(实践证明可行)
