@@ -6,6 +6,7 @@ import random
 import scrapy
 import json
 import time
+import re
 from coupon.items import CouponItem
 
 # 卖家信息文件
@@ -65,7 +66,7 @@ class CouponSpider(scrapy.Spider):
             'scrapy.downloadermiddlewares.httpproxy.HttpProxyMiddleware': 110,
         },
         'ITEM_PIPELINES': {
-           'coupon.pipelines.CouponPipeline': 300,
+            'coupon.pipelines.CouponPipeline': 300,
         },
 
         # 线下
@@ -193,17 +194,21 @@ class CouponSpider(scrapy.Spider):
         try:
             # 解析优惠券信息
             price = response.xpath('//*[@class="coupon-info"]/dl/dt/text()').extract()[0].split(u'元')[0]
+            price = int(float(price) * 100)
             condition = response.xpath('//*[@class="coupon-info"]/dl/dd[2]/text()').extract()[0]
+            mprice = re.match(u".*满([0-9]+(\\.[0-9]+)?)", condition).group(1)
+            mprice = int(float(mprice) * 100)
             period_of_validity = response.xpath('//*[@class="coupon-info"]/dl/dd[3]/text()').extract()[0]
-            start = period_of_validity.split(':')[1].split(u'至')[0].replace('-', '.')
-            end = period_of_validity.split(':')[1].split(u'至')[1].replace('-', '.')
+            start = re.match(u".*:(.*)至(.*)", period_of_validity).group(1)
+            end = re.match(u".*:(.*)至(.*)", period_of_validity).group(2)
 
             # 将优惠券信息加入coupon_item
             coupon = {
                 'acId': activity_ids[activity_index],
-                'condition': condition,
                 'type': 0,
-                'price': int(price)*100,
+                'price': price,
+                'condition': condition,
+                'mprice': mprice,
                 'start': start,
                 'end': end,
             }
