@@ -11,7 +11,7 @@ import re
 from coupon.items import CouponItem
 
 # 卖家信息文件
-SELLERS_FILE = './data/sellers.20161117.json.00'
+SELLERS_FILE = './data/sellers.20161117.json'
 
 
 # 从文件中读取卖家信息
@@ -122,7 +122,7 @@ class CouponSpider(scrapy.Spider):
         seller = self.sellers[seller_index]
         url = 'http://zhushou3.taokezhushou.com/api/v1/getdata?itemid={0:d}&version=3.5.1'.format(random.randint(1000000, 99999999))
         yield scrapy.Request(url=url, meta={'seller_index': seller_index}, headers=zhushou_headers, callback=self.parse_ad)
-        url = 'http://zhushou3.taokezhushou.com/api/v1/coupons_base/{0:d}?item_id={1:d}'.format(seller['sellerId'], random.randint(1000000, 99999999))
+        url = 'http://zhushou3.taokezhushou.com/api/v1/coupons_base/{0:s}?item_id={1:d}'.format(seller['sellerId'], random.randint(1000000, 99999999))
         yield scrapy.Request(url=url, meta={'seller_index': seller_index}, headers=zhushou_headers, callback=self.parse_acIds)
 
     def parse_ad(self, response):
@@ -153,7 +153,7 @@ class CouponSpider(scrapy.Spider):
 
                     # 获取淘客助手返回的优惠券id, 及其对应的卖家信息, 然后调用start_check函数检测
                     nick = seller['nick']
-                    selid = str(seller['sellerId'])
+                    selid = seller['sellerId']
                     acIds = [item['activity_id'] for item in data['data']]
 
                     # 查找该店铺的多个CPS商品的spid, 对优惠券分别用多个spid检测是否店铺优惠券.
@@ -207,7 +207,7 @@ class CouponSpider(scrapy.Spider):
             seller = self.sellers[seller_index]
             url = 'http://zhushou3.taokezhushou.com/api/v1/getdata?itemid={0:d}&version=3.5.1'.format(random.randint(1000000, 99999999))
             yield scrapy.Request(url=url, meta={'seller_index': seller_index}, headers=zhushou_headers, callback=self.parse_ad, dont_filter=True)
-            url = 'http://zhushou3.taokezhushou.com/api/v1/coupons_base/{0:d}?item_id={1:d}'.format(seller['sellerId'], random.randint(1000000, 99999999))
+            url = 'http://zhushou3.taokezhushou.com/api/v1/coupons_base/{0:s}?item_id={1:d}'.format(seller['sellerId'], random.randint(1000000, 99999999))
             yield scrapy.Request(url=url, meta={'seller_index': seller_index}, headers=zhushou_headers, callback=self.parse_acIds, dont_filter=True)
         else:
             pass
