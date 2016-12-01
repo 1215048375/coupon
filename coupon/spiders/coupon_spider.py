@@ -71,7 +71,7 @@ class CouponSpider(scrapy.Spider):
             'coupon.pipelines.CouponPipeline': 300,
         },
 
-        # 线下
+        # 线上mongodb数据库
         'MONGO_URI': '199.155.122.32:27018',
         'MONGO_DATABASE': 'tts_spider_deploy',
         'MONGO_PRODUCT_COLLECTION': 't_spider_product_info2',
@@ -79,15 +79,15 @@ class CouponSpider(scrapy.Spider):
         'MONGO_SEQ_COLLECTION': 't_spider_product_seq',
     }
 
-    # 连接mongodb商品库表
+    # 连接mongodb商品表
     mongo_client = pymongo.MongoClient(custom_settings['MONGO_URI'])
     mongo_db = mongo_client[custom_settings['MONGO_DATABASE']]
     mongo_product_collection = mongo_db[custom_settings['MONGO_PRODUCT_COLLECTION']]
 
     sellers = get_sellers()  # 从文件中载入所有seller信息
-    seller_num = 0  # 已抓取过的seller数量
-    coupon_num = 0  # 已抓取到的优惠券数量
-    session = ''  # 爬虫链接的会话
+    seller_num = 0  # 抓取到优惠券的seller数量
+    coupon_num = 0  # 抓取到的优惠券数量
+    session = ''    # 爬虫链接的会话
 
     @classmethod
     def from_crawler(cls, crawler, *args, **kwargs):
@@ -148,6 +148,9 @@ class CouponSpider(scrapy.Spider):
             data = json.loads(response.body)
             if data['data']:
                 if data['data'][0] is not None:
+                    # 统计拿到优惠券的店铺数量
+                    self.seller_num += 1
+
                     # 获取淘客助手返回的优惠券id, 及其对应的卖家信息, 然后调用start_check函数检测
                     nick = seller['nick']
                     selid = str(seller['sellerId'])
@@ -158,8 +161,8 @@ class CouponSpider(scrapy.Spider):
                     cps_spids = [cps_spid['spid'] for cps_spid in cps_spids]
 
                     # 两种情况对应的处理方式:
-                    #   1. 未获得该店铺CPS商品spid的情况: 默认优惠券适用范围未知, 然后调用start_parse_coupon函数解析优惠券信息
-                    #   2. 获得了该店铺CPS商品spid的情况: 默认优惠券适用范围未知, 然后调用do_check函数检测其是否店铺优惠券
+                    #   1. 未获得该店铺CPS商品spid的情况: 默认优惠券适用范围未知, 然后调用parse_coupon函数解析优惠券信息
+                    #   2. 获得了该店铺CPS商品spid的情况: 默认优惠券适用范围未知, 然后调用check函数检测其是否店铺优惠券
                     if not cps_spids:
                         for acId in acIds:
                             self.logger.error('selid: %s, nick: %s, acId: %s. can not find cps product for detection' % (selid, nick, acId))
@@ -291,6 +294,11 @@ class CouponSpider(scrapy.Spider):
             coupon_item['nick'] = nick
             coupon_item['coupons'] = [coupon]
             self.logger.info('sellerId: %s, nick: %s, acId: %s, condition: %s' % (selid, nick, acId, condition))
+
+            # 统计优惠券数量
+            self.coupon_num += 1
+
+            # 将coupon_item抛出给pipeline处理
             yield coupon_item
         except Exception, e:
             # 解析优惠券信息异常
