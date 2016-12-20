@@ -27,10 +27,11 @@ class DynamicIP(object):
         for new_proxy_id in new_proxy_ids:
             try:
                 ip, stat = self.zk_client.get(self.watch_node + '/' + new_proxy_id)
+                # self.proxies[new_proxy_id] = ip
                 data, stat = self.zk_client.get('/adsl_proxy/ip' + '/' + ip)
                 data = json.loads(data)
                 self.proxies[new_proxy_id] = data['host']
-                # self.logger.info('new proxy: %s' % data['host'])
+                # self.logger.info('new proxy: %s' % self.proxies[new_proxy_id])
             except Exception as e:
                 pass
 
